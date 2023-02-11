@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <title>{{ team_info.get('name','') }} - {{event_info.get('name','')}} </title>
+    </head>
+    <body>
+        <h1>{{event_info.get('name','')}}</h1>
+
+        <h2>{{event_info.get('date','')}} - {{event_info.get('location','')}}</h2>
+
+        <h3>{{ team_info.get('name', 'Team {}'.format(team_id)) }} - {{team_info.get('club','')}}  - {{team_info.get('division','')}} </h3>
+
+        {% if past_schedule %}
+        <H3>Past</H3>
+            {% for match in past_schedule %}
+                {{ match }}
+            {% endfor %}
+        {% endif %}
+
+        {% if current_schedule %}
+        <H3>Current</H3>
+            {% for match in current_schedule %}
+                {{ render_match(match) }}<br/>
+            {% endfor %}
+        {% endif %}
+
+        {% if future_schedule %}
+        <H3>Future</H3>
+            {% for match in future_schedule %}
+                <!-- {{ match }}<br/> -->
+                {{ match.get('rank_text','') }} -> {{ match.get('play_name','') }} | Play: {{ match.get('next_match_time','') }} {{ match.get('next_match_court','') }} | Work: {{ match.get('work_time','') }} {{ match.get('work_court','') }}<br/>
+            {% endfor %}
+        {% endif %}
+
+    </body>
+</html>
