@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from flask import Flask
-from flask import url_for, render_template
+from flask import url_for, render_template, request
 
 
 import requests
@@ -109,7 +109,7 @@ def match_summary(match_info, play_info):
 def template_funcs():
     def render_match(match):
         # When building the match model, the 'TeamWorksThisMatch' key is set for matches that the selected team is the work team
-        app.logger.debug(f"render_match: work match {match.get('TeamWorksThisMatch','NOT_THERE')}")
+        #app.logger.debug(f"render_match: work match {match.get('TeamWorksThisMatch','NOT_THERE')}")
         if match.get('TeamWorksThisMatch'):
             return f"{match.get('match_time','')} | {match.get('play_name','')} | {match.get('match_name','')} | WORK | {match.get('court','')}"
 
@@ -334,7 +334,7 @@ def convert_schedule_current(event_id, division_id, team_id):
                     # Mark the work matches
                     work_team_id = match.get('WorkTeamId', '')
                     if team_id == work_team_id:
-                        app.logger.debug("!!!!!!!!!!!!! WORK MATCH")
+                        #app.logger.debug("!!!!!!!!!!!!! WORK MATCH")
                         match['TeamWorksThisMatch'] = True
                     matches.append(match_summary(match, play_info))                   
     return matches
@@ -451,10 +451,10 @@ def event_list():
 #    ]
 # }
     # TODO: Support date filtering using parameters
-    start_date = days_delta_at_midnight(-30)
+    start_date = days_delta_at_midnight(-10)
     end_date = days_delta_at_midnight(30)
     # date format: 2023-03-01T00:00:00.000Z
-    url = f"{base_url}/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+gt+{start_date}+and+StartDate+lt+{end_date})"
+    url = f"{base_url}/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+lt+{end_date}+and+StartDate+gt+{start_date})"
     json_content = json_request(url)
     events = json_content.get("value", [])
     output = ["<table><tr><th>Event</th><th>Date</th></tr>"]
@@ -569,6 +569,8 @@ def event_club_teams(event_id, club_id):
 
 @app.route("/matches/<event_id>/<division_id>/<int:team_id>")
 def team_page(event_id, division_id, team_id):
+    args = request.args
+    format = args.get('fmt', default="html")
     model = { 'event_id': event_id, 'division_id': division_id, 'team_id': team_id}
     model['team_info'] = get_team_info(event_id, team_id)
     event_info = get_event_info(event_id)

@@ -12,7 +12,7 @@
         {% if past_schedule %}
         <H3>Past</H3>
             {% for match in past_schedule %}
-                {{ match }}
+                {{ render_match(match) }}<br/>
             {% endfor %}
         {% endif %}
 
