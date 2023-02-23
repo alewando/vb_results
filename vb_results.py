@@ -41,7 +41,24 @@ def days_delta_at_midnight(num_days):
     return f"{dt.isoformat(sep='T', timespec='milliseconds')}Z"
 
 
-def match_summary(match_info, play_info):
+def match_summary(match_info, play_info, event_id, division_id):
+#  play_info {
+#       "Type": 0,
+#       "PlayId": -57316,
+#       "FullName": "Pool 2",
+#       "ShortName": "P2",
+#       "CompleteShortName": "P2",
+#       "CompleteFullName": "Round 1 Pool 2",
+#       "Order": 0,
+#       "Courts": [
+#         {
+#           "CourtId": -58868,
+#           "Name": "ICC 13",
+#           "VideoLink": "https://www.ballertv.com/streams?aes_event_id=28844&aes_court_id=-58868"
+#         }
+#       ]
+#     },
+#     match_info:    
 #       {
 #         "FirstTeamId": 22188,
 #         "FirstTeamName": "Elevation 14 Courtney",
@@ -89,7 +106,10 @@ def match_summary(match_info, play_info):
 #         "ScheduledEndDateTime": "2023-01-28T11:59:59"
 #       },
     match_model = {
+        'event_id':       event_id,
+        'division_id':    division_id,
         'play_name':      play_info.get('CompleteFullName', ""),
+        'play_id':        play_info.get('PlayId', ""),
         'match_name':     match_info.get('MatchFullName', ""),
         'match_time':     format_time(match_info.get('ScheduledStartDateTime', "")),
         'match_time_raw': match_info.get('ScheduledStartDateTime', ""),
@@ -119,7 +139,27 @@ def template_funcs():
             return f"{match_line} |  {match_scores(match)}"
         else:
             return f"{match_line} | {match.get('court','')}"
-    return dict(render_match=render_match)
+    def render_match_table_row(match):
+        event_id = match.get("event_id", "")
+        division_id = match.get("division_id", "")
+        pool_id = match.get("play_id", "")
+        teams = f'{match.get("team_1_name","Team 1")} vs {match.get("team_2_name","Team 2")}'
+        if match.get('TeamWorksThisMatch'):
+            teams = f'WORK'
+
+        match_line = f'<tr class="match play">'
+        match_line = f'{match_line}<td class="match-time">{match.get("match_time","")}</td>'
+        match_line = f'{match_line}<td class="pool"><a href="https://results.advancedeventsystems.com/event/{event_id}/divisions/{division_id}/overview/pool/{pool_id}">{match.get("play_name","")}</a></td>'
+        match_line = f'{match_line}<td class="match-name">{match.get("match_name","")}</td>'
+        match_line = f'{match_line}<td class="teams">{teams}</td>'
+        if match.get("scores", None):
+            match_line = f'{match_line}<td class="scores">{match_scores(match)}</td>'
+        else:
+            match_line = f'{match_line}<td class="court"><a href="https://results.advancedeventsystems.com/event/{event_id}/court-schedule">{match.get("court","")}</a></td>'
+        match_line = f'{match_line}</tr>'
+        return match_line
+
+    return dict(render_match=render_match, render_match_table_row=render_match_table_row)
 
 
 def match_team_name(match, first_second):
@@ -180,6 +220,7 @@ def get_event_info(event_id):
     url = f'{base_url}/api/event/{event_id}'
     json_content = json_request(url)
     event_info = {}
+    event_info['event_id'] = json_content.get('Key', "")
     event_info['name'] = json_content.get('Name', "")
     event_info['location'] = json_content.get('Location', "")
     event_info['date'] = json_content.get('StartDate', "").split("T")[0]
@@ -216,7 +257,8 @@ def get_team_info(event_id, team_id):
     team_details = json_request(url)
     team_info = {}
     team_info['name'] = team_details.get('TeamName',f'Team {team_id}s')
-    team_info['club'] = team_details.get('TeamClub',{}).get('Name','')
+    team_info['club_name'] = team_details.get('TeamClub',{}).get('Name','')
+    team_info['club_id'] = team_details.get('TeamClub',{}).get('ClubId','')
     team_info['division'] = team_details.get('TeamDivision',{}).get('Name','')
     team_info['division_id'] = team_details.get('TeamDivision',{}).get('DivisionId','')
     return team_info
@@ -328,7 +370,6 @@ def convert_schedule_current(event_id, division_id, team_id):
                 match_teams = [m.get('FirstTeamId',''), m.get('SecondTeamId',''), m.get('WorkTeamId', '')]
                 app.logger.debug(f"Checking match team_id={team_id}, teams={match_teams}, match={team_id in match_teams}")
                 return team_id in match_teams
-            #team_matches = [match_summary(match, play_info) for match in pool_sheet.get('Matches', []) if is_team_match(match)]
             for match in pool_sheet.get('Matches', []):
                 if is_team_match(match):
                     # Mark the work matches
@@ -336,7 +377,7 @@ def convert_schedule_current(event_id, division_id, team_id):
                     if team_id == work_team_id:
                         #app.logger.debug("!!!!!!!!!!!!! WORK MATCH")
                         match['TeamWorksThisMatch'] = True
-                    matches.append(match_summary(match, play_info))                   
+                    matches.append(match_summary(match, play_info, event_id, division_id))                   
     return matches
 
 
@@ -357,7 +398,7 @@ def convert_schedule_past(event_id, division_id, team_id):
         log(f'Play: {str(play_details)}', logging.DEBUG)
         match_details = match_play.get('Match', {})
         log(f'Match: {str(match_details)}', logging.DEBUG)
-        matches.append(match_summary(match_details, play_details))
+        matches.append(match_summary(match_details, play_details, event_id, division_id))
        
     return matches
 
@@ -415,8 +456,10 @@ def convert_schedule_future(event_id, division_id, team_id):
         next_match = potential_ranking.get('NextMatch',{})
         next_work = potential_ranking.get('WorkMatch',{})
         match = { 
+        'event_id': event_id,
         'rank_text': potential_ranking.get('PotentialRankText', potential_ranking.get('PotentialRank', '')),
         'play_name': potential_ranking.get('NextPlay',{}).get('CompleteFullName'),
+        'play_id': potential_ranking.get('NextPlay',{}).get('PlayId'),
         'next_match': next_match,
         'next_match_court': next_match.get('Court',{}).get('Name',''),
         'next_match_time': format_time(next_match.get('ScheduledStartDateTime','')),
@@ -570,13 +613,11 @@ def event_club_teams(event_id, club_id):
 @app.route("/matches/<event_id>/<division_id>/<int:team_id>")
 def team_page(event_id, division_id, team_id):
     args = request.args
-    format = args.get('fmt', default="html")
+    format = args.get('fmt', default="rich")
     model = { 'event_id': event_id, 'division_id': division_id, 'team_id': team_id}
     model['team_info'] = get_team_info(event_id, team_id)
     event_info = get_event_info(event_id)
     model['event_info'] = event_info
-
-    # TODO: Link to division standings? team_info['division_id']
 
     model['past_schedule'] = get_team_schedule(event_id, division_id, team_id, 'past')
 
@@ -585,4 +626,4 @@ def team_page(event_id, division_id, team_id):
 
     model['future_schedule'] = get_team_schedule(event_id, division_id, team_id, 'future')
 
-    return render_template('team_page.html', **model)
+    return render_template(f"team_page_{format}.html", **model)

@@ -1,0 +1,54 @@
+<html>
+    <head>
+        <title>{{ team_info.get('name','') }} - {{event_info.get('name','')}} </title>
+        <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"> -->        
+        <!--<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">-->
+        <!--<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">-->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <h1><a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/home">{{event_info.get('name','')}}</a></h1>
+
+        <h2>{{event_info.get('date','')}} - {{event_info.get('location','')}}</h2>
+
+        <h3>
+            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings/{{team_id}}">{{ team_info.get('name', 'Team {}'.format(team_id)) }}</a> - 
+            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings">{{team_info.get('club_name','')}}</a>  - 
+            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/divisions/{{division_id}}/standings">{{team_info.get('division','')}}</a> </h3>
+
+        {% if past_schedule %}
+        <H3>Past</H3>
+            <table class="schedule past">
+            {% for match in past_schedule %}
+                {{ render_match_table_row(match)|safe }}
+            {% endfor %}
+            </table>
+        {% endif %}
+
+        {% if current_schedule %}
+        <H3>Current</H3>
+            <table class="schedule current">
+            {% for match in current_schedule %}
+                {{ render_match_table_row(match)|safe }}
+            {% endfor %}
+            </table>
+        {% endif %}
+
+        {% if future_schedule %}
+        <H3>Future</H3>
+            <table class="schedule future">
+            {% for match in future_schedule %}
+                <!-- {{ match }}<br/> -->
+                <tr>
+                    <td class="potential-rank">{{ match.get('rank_text','') }}</td>
+                    <td class="pool">{{ match.get('play_name','') }}</td>
+                    <td class="match-time">Play: {{ match.get('next_match_time','') }} {{ match.get('next_match_court','') }}</td>
+                    <td class="match-time">Work: {{ match.get('work_time','') }} {{ match.get('work_court','') }}</td>                    
+                </tr>
+            {% endfor %}
+            </table>
+        {% endif %}
+
+    </body>
+</html>
