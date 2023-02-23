@@ -136,7 +136,7 @@ def template_funcs():
         # Otherwise, render a line with match details
         match_line =  f"{match.get('match_time','')} | {match.get('play_name','')} | {match.get('match_name','')} | {match.get('team_1_name','Team 1')} vs {match.get('team_2_name','Team 2')}"
         if match.get("scores", None):
-            return f"{match_line} |  {match_scores(match)}"
+            return f"{match_line} |  {match.get('scores')}"
         else:
             return f"{match_line} | {match.get('court','')}"
     def render_match_table_row(match):
@@ -153,7 +153,7 @@ def template_funcs():
         match_line = f'{match_line}<td class="match-name">{match.get("match_name","")}</td>'
         match_line = f'{match_line}<td class="teams">{teams}</td>'
         if match.get("scores", None):
-            match_line = f'{match_line}<td class="scores">{match_scores(match)}</td>'
+            match_line = f'{match_line}<td class="scores">{match.get("scores")}</td>'
         else:
             match_line = f'{match_line}<td class="court"><a href="https://results.advancedeventsystems.com/event/{event_id}/court-schedule">{match.get("court","")}</a></td>'
         match_line = f'{match_line}</tr>'
