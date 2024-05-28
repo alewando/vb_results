@@ -12,10 +12,10 @@
 
         <h2>{{event_info.get('date','')}} - {{event_info.get('location','')}}</h2>
 
-        <h3>
-            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings/{{team_id}}">{{ team_info.get('name', 'Team {}'.format(team_id)) }}</a> - 
-            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings">{{team_info.get('club_name','')}}</a>  - 
-            <a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/divisions/{{division_id}}/standings">{{team_info.get('division','')}}</a> </h3>
+        <h3>AES:
+            [<a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings/{{team_id}}">{{ team_info.get('name', 'Team {}'.format(team_id)) }}</a>] 
+            [<a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/clubs/{{team_info.get('club_id','')}}/standings">{{team_info.get('club_name','')}}</a>]            [<a href="https://results.advancedeventsystems.com/event/{{event_info.get('event_id','')}}/divisions/{{division_id}}/standings">{{team_info.get('division','')}}</a>]
+        </h3>
 
         {% if past_schedule %}
         <H3>Past</H3>
@@ -50,5 +50,6 @@
             </table>
         {% endif %}
 
+        <H4><a href="?fmt=plain">(Plain text)</a></H4>
     </body>
 </html>
