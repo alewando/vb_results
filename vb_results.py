@@ -26,6 +26,9 @@ def log(msg, level=logging.INFO):
 
 # Formats an ISO-formated timestamp (2023-02-05T11:00:00) to human-friendly (2/5 11:00am)
 def format_time(iso):
+    if not iso:
+        return "Unknown"
+
     try:
         dt = datetime.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%S")
         return dt.strftime("%-m/%-d %-I:%M%p")
@@ -38,7 +41,7 @@ def days_delta_at_midnight(num_days):
     now = datetime.datetime.now()
     dt = now + datetime.timedelta(days = num_days)
     dt = datetime.datetime.combine(dt, datetime.datetime.min.time())
-    return f"{dt.isoformat(sep='T', timespec='milliseconds')}Z"
+    return f"{dt.isoformat(sep='T', timespec='milliseconds')}%2B00:00"
 
 
 def match_summary(match_info, play_info, event_id, division_id):
@@ -453,18 +456,26 @@ def convert_schedule_future(event_id, division_id, team_id):
     schedule = json_request(url)
     matches = []
     for potential_ranking in schedule:
-        next_match = potential_ranking.get('NextMatch',{})
-        next_work = potential_ranking.get('WorkMatch',{})
+        #app.logger.debug(f"potential_ranking {potential_ranking}")
+        
+        next_match = potential_ranking.get('NextMatch',{}) or {}
+        #app.logger.debug(f"NextMatch {next_match}")
+
+        next_work = potential_ranking.get('WorkMatch',{}) or {}
+        next_play = potential_ranking.get('NextPlay',{}) or {}
+        next_court = (next_match.get('Court',{}) or {})
+        work_court = (next_work.get('Court',{}) or {})
+
         match = { 
         'event_id': event_id,
         'rank_text': potential_ranking.get('PotentialRankText', potential_ranking.get('PotentialRank', '')),
-        'play_name': potential_ranking.get('NextPlay',{}).get('CompleteFullName'),
-        'play_id': potential_ranking.get('NextPlay',{}).get('PlayId'),
+        'play_name': next_play.get('CompleteFullName'),
+        'play_id': next_play.get('PlayId'),
         'next_match': next_match,
-        'next_match_court': next_match.get('Court',{}).get('Name',''),
+        'next_match_court': next_court.get('Name',''),
         'next_match_time': format_time(next_match.get('ScheduledStartDateTime','')),
         'next_work': next_work,
-        'work_court': next_work.get('Court',{}).get('Name',''),
+        'work_court': work_court.get('Name',''),
         'work_time': format_time(next_work.get('ScheduledStartDateTime',''))
         }
         matches.append(match)
@@ -479,36 +490,32 @@ def root_page():
 @app.route("/events")
 def event_list():
 # Event listing
-# https://results.advancedeventsystems.com/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+gt+2023-01-23T00:00:00.000Z+and+StartDate+lt+2023-03-01T00:00:00.000Z)
-# {
-#    "value": [
-#        {
-#            "ServerSafeKey": "PTAwMDAwMzA0ODY90",
-#            "SchedulerId": 12839,
-#            "Name": "2023 WCVBA 18s Power League",
-#            "StartDate": "2022-12-01T00:00:00-05:00",
-#            "EndDate": "2023-03-01T00:00:00-05:00",
-#            "LocationName": "Various",
-#            "City": ""
-#        },
-#    ]
-# }
+# (old) https://results.advancedeventsystems.com/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+gt+2023-01-23T00:00:00.000Z+and+StartDate+lt+2023-03-01T00:00:00.000Z)
+#    url = f"{base_url}/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+lt+{end_date}+and+StartDate+gt+{start_date})"
+
+# https://advancedeventsystems.com/api/landing/events?$count=true&$filter=(startDate+gt+2023-03-01T04:00:00%2B00:00+and+endDate+le+2023-04-01T04:00:00%2B00:00)&$format=json&$orderby=startDate,name&$top=100
     # TODO: Support date filtering using parameters
     start_date = days_delta_at_midnight(-10)
-    end_date = days_delta_at_midnight(30)
+    end_date = days_delta_at_midnight(40)
     # date format: 2023-03-01T00:00:00.000Z
-    url = f"{base_url}/odata/events/scheduler?$orderby=StartDate,Name&$filter=(EndDate+lt+{end_date}+and+StartDate+gt+{start_date})"
+    url = f"https://advancedeventsystems.com/api/landing/events?$count=true&$filter=(startDate+gt+{start_date}+and+endDate+le+{end_date})&$format=json&$orderby=startDate,name&$top=1000"
+    # log(f"Getting events from {url}", logging.ERROR)
     json_content = json_request(url)
     events = json_content.get("value", [])
+    # log(f"events: {events}",logging.ERROR)
     output = ["<table><tr><th>Event</th><th>Date</th></tr>"]
     for event in events:
-        event_date = event.get("StartDate", "").split("T")[0]
-        output.append(f'<tr><td><a href="{url_for("event_clubs", event_id=event.get("ServerSafeKey",""))}">{event.get("Name","Unknown")}</a></td><td>{event_date}</td></tr>')
+        # log(f"event: {event}",logging.ERROR)
+        event_date = event.get("startDate", "").split("T")[0]
+        event_id = event.get("eventSchedulerKey",None)
+        if event_id:
+            output.append(f'<tr><td><a href="{url_for("event_clubs", event_id=event_id)}">{event.get("name","Unknown")}</a></td><td>{event_date}</td></tr>')
     output.append("</table>")
+    # return output
     return "\n".join(output)
 
 
-@app.route("/event_clubs/<event_id>")
+@app.route("/event/<event_id>")
 def event_clubs(event_id):
 # Event clubs and divisions (get club id by name)
 # https://results.advancedeventsystems.com/api/event/{event_id}
@@ -555,7 +562,7 @@ def event_clubs(event_id):
     return "<br/>".join(output)
 
 
-@app.route("/event_club_teams/<event_id>/<club_id>")
+@app.route("/event/<event_id>/<club_id>")
 def event_club_teams(event_id, club_id):
 # Club teams (get division id and team id for club id + team name)
 # https://results.advancedeventsystems.com/odata/{event_id}/nextassignments(dId=null,cId={club_id},tIds=[])?$orderby=TeamName,TeamCode
@@ -610,7 +617,7 @@ def event_club_teams(event_id, club_id):
     return "<br/>".join(output)
 
 
-@app.route("/matches/<event_id>/<division_id>/<int:team_id>")
+@app.route("/event/<event_id>/<division_id>/<int:team_id>")
 def team_page(event_id, division_id, team_id):
     args = request.args
     format = args.get('fmt', default="rich")
