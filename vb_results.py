@@ -457,7 +457,7 @@ def convert_schedule_future(event_id, division_id, team_id):
     matches = []
     for potential_ranking in schedule:
         #app.logger.debug(f"potential_ranking {potential_ranking}")
-        
+
         next_match = potential_ranking.get('NextMatch',{}) or {}
         #app.logger.debug(f"NextMatch {next_match}")
 
@@ -475,9 +475,12 @@ def convert_schedule_future(event_id, division_id, team_id):
         'next_match_court': next_court.get('Name',''),
         'next_match_time': format_time(next_match.get('ScheduledStartDateTime','')),
         'next_work': next_work,
-        'work_court': work_court.get('Name',''),
+        #'work_court': next_work.get('Court',{}).get('Name',''),
         'work_time': format_time(next_work.get('ScheduledStartDateTime',''))
         }
+        work_court = next_work.get('Court',{})
+        if work_court:
+            match['work_court']=work_court.get('Name', '')
         matches.append(match)
 
     return matches
@@ -617,7 +620,7 @@ def event_club_teams(event_id, club_id):
     return "<br/>".join(output)
 
 
-@app.route("/event/<event_id>/<division_id>/<int:team_id>")
+@app.route("/event/<event_id>/<division_id>/<team_id>")
 def team_page(event_id, division_id, team_id):
     args = request.args
     format = args.get('fmt', default="rich")
